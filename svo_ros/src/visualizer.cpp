@@ -405,14 +405,18 @@ void Visualizer::publishImagesWithFeatures(const FrameBundlePtr& frame_bundle,
 
     FramePtr frame = frame_bundle->at(i);
     cv::Mat img_rgb;
-    feature_detection_utils::drawFeatures(*frame, img_pub_level_, true,
+    cv::cvtColor(frame->img_pyr_[img_pub_level_], img_rgb, cv::COLOR_GRAY2RGB);
+
+    // bypass drawing the image points 
+    /*feature_detection_utils::drawFeatures(*frame, img_pub_level_, true,
                                           &img_rgb);
     if (draw_boundary)
     {
       cv::rectangle(img_rgb, cv::Point2f(0.0, 0.0),
                     cv::Point2f(img_rgb.cols, img_rgb.rows),
                     cv::Scalar(0, 255, 0), 6);
-    }
+    }*/
+    
     writeCaptionStr(img_rgb);
     cv_bridge::CvImage img_msg;
     img_msg.header.frame_id = "cam";

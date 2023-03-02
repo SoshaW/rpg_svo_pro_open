@@ -1,0 +1,25 @@
+cameras:
+- camera:
+    distortion:
+      parameters:
+        cols: 1
+        rows: 4
+        data: [0.0798, -0.1497, 0, 0]
+      type: radial-tangential
+    image_height: 720
+    image_width: 1280
+    intrinsics:
+      cols: 1
+      rows: 4
+      data: [1083.398177662033, 1083.986448901414, 667.2547057809907, 390.1034625379547]
+    label: cam
+    line-delay-nanoseconds: 0
+    type: pinhole
+  T_B_C:
+    cols: 4
+    rows: 4
+    data: [1, 0, 0, 0,
+           0, 1, 0, 0,
+           0, 0, 1, 0,
+           0, 0, 0, 0]
+label: test_camera
