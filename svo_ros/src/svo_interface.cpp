@@ -361,6 +361,11 @@ void SvoInterface::monoCallback(const sensor_msgs::ImageConstPtr& msg)
   imageCallbackPostprocessing();
 }
 
+void SvoInterface::mocapCallback(const geometry_msgs::PoseStamped msg)
+{
+  std::cout << "works" << std::endl;
+}
+
 void SvoInterface::stereoCallback(
     const sensor_msgs::ImageConstPtr& msg0,
     const sensor_msgs::ImageConstPtr& msg1)
@@ -491,7 +496,7 @@ void SvoInterface::monoLoop()
       vk::param<std::string>(pnh_, "cam0_topic", "camera/image_raw");
   image_transport::Subscriber it_sub =
       it.subscribe(image_topic, 5, &svo::SvoInterface::monoCallback, this);
-  ros::Subscriber pose_sub = nh.subscribe("/vrpn_client_node/turtlebot_cam/pose", 10, &svo::SvoInterface::mocapCallback, this)
+  ros::Subscriber pose_sub = nh.subscribe("/vrpn_client_node/turtlebot_cam/pose", 10, &svo::SvoInterface::mocapCallback, this);
   while(ros::ok() && !quit_)
   {
     queue.callAvailable(ros::WallDuration(0.1));
