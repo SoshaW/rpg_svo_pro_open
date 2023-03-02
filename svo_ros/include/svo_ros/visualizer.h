@@ -12,6 +12,7 @@
 
 // ros
 #include <ros/ros.h>
+#include <rosbag/bag.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sensor_msgs/Image.h>
@@ -179,6 +180,8 @@ public:
   void publishSeedsUncertainty(const MapPtr& map);
 
   void visualizeCoordinateFrames(const Transformation& T_world_cam);
+
+  void write2Bag();
 
 #ifdef SVO_LOOP_CLOSING
   void publishLoopClosureInfo(

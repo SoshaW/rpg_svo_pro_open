@@ -6,6 +6,7 @@
 #include <std_msgs/String.h>    // user-input
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/PoseStamped.h>
 
 
 #include <svo/common/types.h>
@@ -79,6 +80,7 @@ public:
 
   // Subscription and callbacks
   void monoCallback(const sensor_msgs::ImageConstPtr& msg);
+  void mocapCallback(const geometry_msgs::PoseStamped msg);
   void stereoCallback(
       const sensor_msgs::ImageConstPtr& msg0,
       const sensor_msgs::ImageConstPtr& msg1);

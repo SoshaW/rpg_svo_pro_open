@@ -353,7 +353,6 @@ void SvoInterface::monoCallback(const sensor_msgs::ImageConstPtr& msg)
 
   processImageBundle(images, msg->header.stamp.toNSec());
 
-
   publishResults(images, msg->header.stamp.toNSec());
 
   if(svo_->stage() == Stage::kPaused && automatic_reinitialization_)
@@ -382,7 +381,7 @@ void SvoInterface::stereoCallback(
     VLOG(3) << "Could not align gravity! Attempting again in next iteration.";
     return;
   }
-
+ 
   imageCallbackPreprocessing(msg0->header.stamp.toNSec());
 
   processImageBundle({img0, img1}, msg0->header.stamp.toNSec());
@@ -492,7 +491,7 @@ void SvoInterface::monoLoop()
       vk::param<std::string>(pnh_, "cam0_topic", "camera/image_raw");
   image_transport::Subscriber it_sub =
       it.subscribe(image_topic, 5, &svo::SvoInterface::monoCallback, this);
-
+  ros::Subscriber pose_sub = nh.subscribe("/vrpn_client_node/turtlebot_cam/pose", 10, &svo::SvoInterface::mocapCallback, this)
   while(ros::ok() && !quit_)
   {
     queue.callAvailable(ros::WallDuration(0.1));

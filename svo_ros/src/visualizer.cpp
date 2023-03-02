@@ -271,37 +271,6 @@ void Visualizer::publishImuPose(const Transformation& T_world_imu,
   pub_imu_pose_.publish(msg_pose);
 }
 
-void Visualizer::publishCameraPoses(const FrameBundlePtr& frame_bundle,
-                                    const int64_t timestamp_nanoseconds)
-{
-  vk::output_helper::publishTfTransform(
-      frame_bundle->at(0)->T_cam_world(),
-      ros::Time().fromNSec(timestamp_nanoseconds), "cam_pos", kWorldFrame, br_);
-
-  for (size_t i = 0; i < frame_bundle->size(); ++i)
-  {
-    if (pub_cam_poses_.at(i).getNumSubscribers() == 0)
-      return;
-    VLOG(100) << "Publish camera pose " << i;
-
-    Eigen::Quaterniond q =
-        frame_bundle->at(i)->T_world_cam().getRotation().toImplementation();
-    Eigen::Vector3d p = frame_bundle->at(i)->T_world_cam().getPosition();
-    geometry_msgs::PoseStampedPtr msg_pose(new geometry_msgs::PoseStamped);
-    msg_pose->header.seq = trace_id_;
-    msg_pose->header.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
-    msg_pose->header.frame_id = "cam" + std::to_string(i);
-    msg_pose->pose.position.x = p[0];
-    msg_pose->pose.position.y = p[1];
-    msg_pose->pose.position.z = p[2];
-    msg_pose->pose.orientation.x = q.x();
-    msg_pose->pose.orientation.y = q.y();
-    msg_pose->pose.orientation.z = q.z();
-    msg_pose->pose.orientation.w = q.w();
-    pub_cam_poses_.at(i).publish(msg_pose);
-  }
-}
-
 void Visualizer::publishBundleFeatureTracks(const FrameBundlePtr frames_ref,
                                             const FrameBundlePtr frames_cur,
                                             int64_t timestamp)
@@ -407,7 +376,7 @@ void Visualizer::publishImagesWithFeatures(const FrameBundlePtr& frame_bundle,
     cv::Mat img_rgb;
     cv::cvtColor(frame->img_pyr_[img_pub_level_], img_rgb, cv::COLOR_GRAY2RGB);
 
-    // bypass drawing the image points 
+    // bypass drawing the image points uncomment to turn on
     /*feature_detection_utils::drawFeatures(*frame, img_pub_level_, true,
                                           &img_rgb);
     if (draw_boundary)
@@ -426,6 +395,44 @@ void Visualizer::publishImagesWithFeatures(const FrameBundlePtr& frame_bundle,
     img_msg.encoding = sensor_msgs::image_encodings::BGR8;
     pub_images_.at(i).publish(img_msg.toImageMsg());
   }
+}
+
+void Visualizer::publishCameraPoses(const FrameBundlePtr& frame_bundle,
+                                    const int64_t timestamp_nanoseconds)
+{
+  vk::output_helper::publishTfTransform(
+      frame_bundle->at(0)->T_cam_world(),
+      ros::Time().fromNSec(timestamp_nanoseconds), "cam_pos", kWorldFrame, br_);
+
+  for (size_t i = 0; i < frame_bundle->size(); ++i)
+  {
+    if (pub_cam_poses_.at(i).getNumSubscribers() == 0)
+      return;
+    VLOG(100) << "Publish camera pose " << i;
+
+    Eigen::Quaterniond q =
+        frame_bundle->at(i)->T_world_cam().getRotation().toImplementation();
+    Eigen::Vector3d p = frame_bundle->at(i)->T_world_cam().getPosition();
+    geometry_msgs::PoseStampedPtr msg_pose(new geometry_msgs::PoseStamped);
+    msg_pose->header.seq = trace_id_;
+    msg_pose->header.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
+    msg_pose->header.frame_id = "cam" + std::to_string(i);
+    msg_pose->pose.position.x = p[0];
+    msg_pose->pose.position.y = p[1];
+    msg_pose->pose.position.z = p[2];
+    msg_pose->pose.orientation.x = q.x();
+    msg_pose->pose.orientation.y = q.y();
+    msg_pose->pose.orientation.z = q.z();
+    msg_pose->pose.orientation.w = q.w();
+    pub_cam_poses_.at(i).publish(msg_pose);
+  }
+}
+
+void Visualizer::write2Bag()
+{
+
+
+
 }
 
 void Visualizer::visualizeHexacopter(const Transformation& T_frame_world,
