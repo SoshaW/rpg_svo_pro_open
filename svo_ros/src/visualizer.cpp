@@ -168,6 +168,7 @@ Visualizer::Visualizer(const std::string& trace_dir,
   , trace_pointcloud_(vk::param<bool>(pnh_, "trace_pointcloud", false))
   , vis_scale_(vk::param<double>(pnh_, "publish_marker_scale", 1.2))
 {
+  bag.open("football.bag",rosbag::bagmode::Write);
   // Init ROS Marker Publishers
   pub_frames_ = pnh_.advertise<visualization_msgs::Marker>("keyframes", 10);
   pub_points_ = pnh_.advertise<visualization_msgs::Marker>("points", 10000);
@@ -221,6 +222,11 @@ Visualizer::Visualizer(const std::string& trace_dir,
       pnh_.advertise<visualization_msgs::MarkerArray>(
         "global_map_point_ids", 10);
 #endif
+}
+
+Visualizer::~Visualizer()
+{
+  bag.close();
 }
 
 void Visualizer::publishSvoInfo(const svo::FrameHandlerBase* const svo,
@@ -428,11 +434,31 @@ void Visualizer::publishCameraPoses(const FrameBundlePtr& frame_bundle,
   }
 }
 
-void Visualizer::write2Bag()
+void Visualizer::write2Bag(const FrameBundlePtr& frame_bundle,
+                                           const int64_t timestamp_nanoseconds,
+                                           const geometry_msgs::PoseStampedPtr mocap_pose)
 {
+  // considering camera 0 since one camera is used
+  Eigen::Quaterniond q =
+      frame_bundle->at(0)->T_world_cam().getRotation().toImplementation();
+  Eigen::Vector3d p = frame_bundle->at(0)->T_world_cam().getPosition();
+  geometry_msgs::PoseStampedPtr msg_pose(new geometry_msgs::PoseStamped);
+  msg_pose->header.seq = trace_id_;
+  msg_pose->header.stamp = ros::Time().fromNSec(timestamp_nanoseconds);
+  msg_pose->header.frame_id = "cam" + std::to_string(0);
+  msg_pose->pose.position.x = p[0];
+  msg_pose->pose.position.y = p[1];
+  msg_pose->pose.position.z = p[2];
+  msg_pose->pose.orientation.x = q.x();
+  msg_pose->pose.orientation.y = q.y();
+  msg_pose->pose.orientation.z = q.z(); 
+  msg_pose->pose.orientation.w = q.w();
 
+  bag.write("/pose_svo", ros::Time().fromNSec(timestamp_nanoseconds), msg_pose);
+  bag.write("/pose_mocap", ros::Time().fromNSec(timestamp_nanoseconds), mocap_pose);
+  bag.write("/usb_cam/image", ros::Time().fromNSec(timestamp_nanoseconds), mocap_pose);
 
-
+  ROS_INFO_STREAM("Writting to bag");
 }
 
 void Visualizer::visualizeHexacopter(const Transformation& T_frame_world,
