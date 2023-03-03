@@ -40,6 +40,7 @@
 
 #ifdef SVO_GLOBAL_MAP
 #include <svo/global_map.h>
+#include "svo_interface.h"
 #endif
 
 namespace svo {
@@ -276,6 +277,115 @@ void SvoInterface::publishResults(
 #endif
 }
 
+void SvoInterface::publishResults_mocap(
+    const std::vector<cv::Mat>& images,
+    const int64_t timestamp_nanoseconds, geometry_msgs::PoseStampedPtr pose)
+{
+  CHECK_NOTNULL(svo_.get());
+  CHECK_NOTNULL(visualizer_.get());
+
+  visualizer_->img_caption_.clear();
+  if (svo_->isBackendValid())
+  {
+    std::string static_str = ceres_backend_interface_->getStationaryStatusStr();
+    visualizer_->img_caption_ = static_str;
+  }
+
+  visualizer_->publishSvoInfo(svo_.get(), timestamp_nanoseconds);
+  switch (svo_->stage())
+  {
+    case Stage::kTracking: {
+      Eigen::Matrix<double, 6, 6> covariance;
+      covariance.setZero();
+      visualizer_->publishImuPose(
+            svo_->getLastFrames()->get_T_W_B(), covariance, timestamp_nanoseconds);
+      visualizer_->publishCameraPoses(svo_->getLastFrames(), timestamp_nanoseconds);
+      visualizer_->visualizeMarkers(
+            svo_->getLastFrames(), svo_->closeKeyframes(), svo_->map());
+      visualizer_->exportToDense(svo_->getLastFrames());
+      bool draw_boundary = false;
+      if (svo_->isBackendValid())
+      {
+        draw_boundary = svo_->getBundleAdjuster()->isFixedToGlobalMap();
+      }
+      visualizer_->publishImagesWithFeatures(
+            svo_->getLastFrames(), timestamp_nanoseconds,
+            draw_boundary);
+      visualizer_->write2Bag(svo_->getLastFrames(), timestamp_nanoseconds, mocap_pose);
+#ifdef SVO_LOOP_CLOSING
+      // detections
+      if (svo_->lc_)
+      {
+        visualizer_->publishLoopClosureInfo(
+              svo_->lc_->cur_loop_check_viz_info_,
+              std::string("loop_query"),
+              Eigen::Vector3f(0.0f, 0.0f, 1.0f), 0.5);
+        visualizer_->publishLoopClosureInfo(
+              svo_->lc_->loop_detect_viz_info_, std::string("loop_detection"),
+              Eigen::Vector3f(1.0f, 0.0f, 0.0f), 1.0);
+        if (svo_->isBackendValid())
+        {
+          visualizer_->publishLoopClosureInfo(
+                svo_->lc_->loop_correction_viz_info_,
+                std::string("loop_correction"),
+                Eigen::Vector3f(0.0f, 1.0f, 0.0f), 3.0);
+        }
+        if (svo_->getLastFrames()->at(0)->isKeyframe())
+        {
+          bool pc_recalculated = visualizer_->publishPoseGraph(
+                svo_->lc_->kf_list_,
+                svo_->lc_->need_to_update_pose_graph_viz_,
+                static_cast<size_t>(svo_->lc_->options_.ignored_past_frames));
+          if(pc_recalculated)
+          {
+            svo_->lc_->need_to_update_pose_graph_viz_ = false;
+          }
+        }
+      }
+#endif
+#ifdef SVO_GLOBAL_MAP
+      if (svo_->global_map_)
+      {
+        visualizer_->visualizeGlobalMap(*(svo_->global_map_),
+                                        std::string("global_vis"),
+                                        Eigen::Vector3f(0.0f, 0.0f, 1.0f),
+                                        0.3);
+        visualizer_->visualizeFixedLandmarks(svo_->getLastFrames()->at(0));
+      }
+#endif
+      break;
+    }
+    case Stage::kInitializing: {
+      visualizer_->publishBundleFeatureTracks(
+            svo_->initializer_->frames_ref_, svo_->getLastFrames(),
+            timestamp_nanoseconds);
+      break;
+    }
+    case Stage::kPaused:
+    case Stage::kRelocalization:
+      visualizer_->publishImages(images, timestamp_nanoseconds);
+      break;
+    default:
+      LOG(FATAL) << "Unknown stage";
+      break;
+  }
+
+#ifdef SVO_USE_GTSAM_BACKEND
+  if(svo_->stage() == Stage::kTracking && backend_interface_)
+  {
+    if(svo_->getLastFrames()->isKeyframe())
+    {
+      std::lock_guard<std::mutex> estimate_lock(backend_interface_->optimizer_->estimate_mut_);
+      const gtsam::Values& state = backend_interface_->optimizer_->estimate_;
+      ceres_backend_publisher_->visualizeFrames(state);
+      if(backend_interface_->options_.add_imu_factors)
+        ceres_backend_publisher_->visualizeVelocity(state);
+      ceres_backend_publisher_->visualizePoints(state);
+    }
+  }
+#endif
+}
+
 bool SvoInterface::setImuPrior(const int64_t timestamp_nanoseconds)
 {
   if(svo_->getBundleAdjuster())
@@ -331,9 +441,11 @@ void SvoInterface::monoCallback(const sensor_msgs::ImageConstPtr& msg)
     return;
 
   cv::Mat image;
+  geometry_msgs::PoseStampedPtr pose;
   try
   {
     image = cv_bridge::toCvCopy(msg)->image;
+    pose = mocap_pose;
   }
   catch (cv_bridge::Exception& e)
   {
@@ -353,7 +465,19 @@ void SvoInterface::monoCallback(const sensor_msgs::ImageConstPtr& msg)
 
   processImageBundle(images, msg->header.stamp.toNSec());
 
+  bool pub_mocap = true;
+
+  if (pub_mocap == true)
+  {
+    publishResults_mocap(images, msg->header.stamp.toNSec(), pose);
+  }
+  else
+  {
+    publishResults(images, msg->header.stamp.toNSec());
+  }
+
   publishResults(images, msg->header.stamp.toNSec());
+  
 
   if(svo_->stage() == Stage::kPaused && automatic_reinitialization_)
     svo_->start();
@@ -361,9 +485,9 @@ void SvoInterface::monoCallback(const sensor_msgs::ImageConstPtr& msg)
   imageCallbackPostprocessing();
 }
 
-void SvoInterface::mocapCallback(const geometry_msgs::PoseStamped msg)
+void SvoInterface::mocapCallback(const geometry_msgs::PoseStampedPtr& msg)
 {
-  std::cout << "works" << std::endl;
+  mocap_pose = msg;
 }
 
 void SvoInterface::stereoCallback(

@@ -42,6 +42,8 @@ public:
   std::string remote_input_;
   std::unique_ptr<std::thread> imu_thread_;
   std::unique_ptr<std::thread> image_thread_;
+  
+  geometry_msgs::PoseStampedPtr mocap_pose;
 
   // SVO modules.
   std::shared_ptr<FrameHandlerBase> svo_;
@@ -78,9 +80,13 @@ public:
       const std::vector<cv::Mat>& images,
       const int64_t timestamp_nanoseconds);
 
+  void SvoInterface::publishResults_mocap(
+    const std::vector<cv::Mat>& images,
+    const int64_t timestamp_nanoseconds, geometry_msgs::PoseStampedPtr pose);
+
   // Subscription and callbacks
   void monoCallback(const sensor_msgs::ImageConstPtr& msg);
-  void mocapCallback(const geometry_msgs::PoseStamped msg);
+  void mocapCallback(const geometry_msgs::PoseStampedPtr& msg);
   void stereoCallback(
       const sensor_msgs::ImageConstPtr& msg0,
       const sensor_msgs::ImageConstPtr& msg1);

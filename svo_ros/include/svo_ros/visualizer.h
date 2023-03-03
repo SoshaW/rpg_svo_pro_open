@@ -74,6 +74,9 @@ public:
   std::vector<ros::Publisher> pub_dense_;
   std::vector<image_transport::Publisher> pub_images_;
 
+  // declare rosbag to record data
+  rosbag::Bag bag;
+
   tf::TransformBroadcaster br_;
   bool publish_world_in_cam_frame_;
   bool publish_map_every_frame_;
@@ -110,7 +113,7 @@ public:
   Visualizer(const std::string& trace_dir, const ros::NodeHandle& nh_private,
              const size_t num_cameras);
 
-  ~Visualizer() = default;
+  ~Visualizer();
 
   void publishSvoInfo(const svo::FrameHandlerBase* const svo,
                       const int64_t timestamp_nanoseconds);
@@ -181,7 +184,9 @@ public:
 
   void visualizeCoordinateFrames(const Transformation& T_world_cam);
 
-  void write2Bag();
+  void write2Bag(const FrameBundlePtr& frame_bundle,
+                                           const int64_t timestamp_nanoseconds,
+                                           geometry_msgs::PoseStampedPtr mocap_pose);
 
 #ifdef SVO_LOOP_CLOSING
   void publishLoopClosureInfo(
